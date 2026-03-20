@@ -1,3 +1,4 @@
+import os
 import ollama
 from app.core.providers.base import LLMProvider, EmbeddingProvider
 
@@ -5,8 +6,10 @@ from app.core.providers.base import LLMProvider, EmbeddingProvider
 class OllamaLLMProvider(LLMProvider):
     """Ollama ローカルLLM プロバイダ"""
 
-    def __init__(self, model: str = "qwen3.5:9b", base_url: str = "http://ollama:11434"):
+    def __init__(self, model: str = "qwen3.5:9b", base_url: str = None):
         self.model = model
+        if base_url is None:
+            base_url = os.getenv("OLLAMA_HOST", "http://ollama:11434")
         self.client = ollama.AsyncClient(host=base_url)
 
     async def generate(self, prompt: str) -> str:
@@ -23,8 +26,10 @@ class OllamaLLMProvider(LLMProvider):
 class OllamaEmbeddingProvider(EmbeddingProvider):
     """Ollama テキスト埋め込みプロバイダ"""
 
-    def __init__(self, model: str = "nomic-embed-text", base_url: str = "http://ollama:11434"):
+    def __init__(self, model: str = "nomic-embed-text", base_url: str = None):
         self.model = model
+        if base_url is None:
+            base_url = os.getenv("OLLAMA_HOST", "http://ollama:11434")
         self.client = ollama.AsyncClient(host=base_url)
 
     async def embed(self, text: str) -> list[float]:
