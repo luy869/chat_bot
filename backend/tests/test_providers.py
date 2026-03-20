@@ -80,24 +80,26 @@ async def test_ollama_embedding_batch():
 @pytest.mark.asyncio
 async def test_gemini_llm_generate():
     """GeminiLLMProvider.generate() が正しく応答を返す"""
-    with patch("app.core.providers.gemini.genai.GenerativeModel") as mock_model_class:
+    with patch("app.core.providers.gemini.genai.Client") as mock_client_class:
         mock_response = MagicMock()
         mock_response.text = "Hello from Gemini"
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = mock_response
-        mock_model_class.return_value = mock_model
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_class.return_value = mock_client
 
         provider = GeminiLLMProvider(model="gemini-2.0-flash")
         result = await provider.generate("What is AI?")
 
         assert result == "Hello from Gemini"
-        mock_model.generate_content.assert_called_once()
+        mock_client.models.generate_content.assert_called_once_with(
+            model="gemini-2.0-flash", contents="What is AI?"
+        )
 
 
 @pytest.mark.asyncio
 async def test_gemini_llm_stream():
     """GeminiLLMProvider.stream() がストリーミング応答を返す"""
-    with patch("app.core.providers.gemini.genai.GenerativeModel") as mock_model_class:
+    with patch("app.core.providers.gemini.genai.Client") as mock_client_class:
         chunk1 = MagicMock()
         chunk1.text = "Hello "
         chunk2 = MagicMock()
@@ -105,9 +107,9 @@ async def test_gemini_llm_stream():
         chunk3 = MagicMock()
         chunk3.text = "Gemini"
 
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = [chunk1, chunk2, chunk3]
-        mock_model_class.return_value = mock_model
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = [chunk1, chunk2, chunk3]
+        mock_client_class.return_value = mock_client
 
         provider = GeminiLLMProvider(model="gemini-2.0-flash")
         chunks = []
@@ -116,31 +118,42 @@ async def test_gemini_llm_stream():
 
         assert len(chunks) == 3
         assert "".join(chunks) == "Hello from Gemini"
+        mock_client.models.generate_content.assert_called_once_with(
+            model="gemini-2.0-flash", contents="What is AI?", stream=True
+        )
 
 
 @pytest.mark.asyncio
 async def test_gemini_embedding():
     """GeminiEmbeddingProvider.embed() がベクトルを返す"""
-    with patch("app.core.providers.gemini.genai.embed_content") as mock_embed:
-        mock_embed.return_value = {
-            "embedding": [0.1, 0.2, 0.3, 0.4]
-        }
+    with patch("app.core.providers.gemini.genai.Client") as mock_client_class:
+        mock_response = MagicMock()
+        mock_response.embedding = [0.1, 0.2, 0.3, 0.4]
+        mock_client = MagicMock()
+        mock_client.models.embed_content.return_value = mock_response
+        mock_client_class.return_value = mock_client
 
         provider = GeminiEmbeddingProvider(model="models/embedding-001")
         result = await provider.embed("Hello world")
 
         assert result == [0.1, 0.2, 0.3, 0.4]
-        mock_embed.assert_called_once()
+        mock_client.models.embed_content.assert_called_once_with(
+            model="models/embedding-001", contents="Hello world"
+        )
 
 
 @pytest.mark.asyncio
 async def test_gemini_embedding_batch():
     """GeminiEmbeddingProvider.embed_batch() が複数ベクトルを返す"""
-    with patch("app.core.providers.gemini.genai.embed_content") as mock_embed:
-        mock_embed.side_effect = [
-            {"embedding": [0.1, 0.2, 0.3]},
-            {"embedding": [0.4, 0.5, 0.6]},
-        ]
+    with patch("app.core.providers.gemini.genai.Client") as mock_client_class:
+        mock_response1 = MagicMock()
+        mock_response1.embedding = [0.1, 0.2, 0.3]
+        mock_response2 = MagicMock()
+        mock_response2.embedding = [0.4, 0.5, 0.6]
+
+        mock_client = MagicMock()
+        mock_client.models.embed_content.side_effect = [mock_response1, mock_response2]
+        mock_client_class.return_value = mock_client
 
         provider = GeminiEmbeddingProvider(model="models/embedding-001")
         result = await provider.embed_batch(["Hello", "World"])
@@ -148,3 +161,4 @@ async def test_gemini_embedding_batch():
         assert len(result) == 2
         assert result[0] == [0.1, 0.2, 0.3]
         assert result[1] == [0.4, 0.5, 0.6]
+        assert mock_client.models.embed_content.call_count == 2

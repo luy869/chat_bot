@@ -1,4 +1,5 @@
-import google.generativeai as genai
+import asyncio
+from google import genai
 from app.core.providers.base import LLMProvider, EmbeddingProvider
 
 
@@ -10,19 +11,29 @@ class GeminiLLMProvider(LLMProvider):
         model: 使用するGeminiモデル名
         api_key: Google API キー（環境変数 GEMINI_API_KEY から取得できる場合は省略可）
         """
-        if api_key:
-            genai.configure(api_key=api_key)
         self.model = model
-        self.client = genai.GenerativeModel(model)
+        self.client = genai.Client(api_key=api_key) if api_key else genai.Client()
 
     async def generate(self, prompt: str) -> str:
         """テキスト生成（1回の応答）"""
-        response = self.client.generate_content(prompt)
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: self.client.models.generate_content(
+                model=self.model, contents=prompt
+            ),
+        )
         return response.text if response else ""
 
     async def stream(self, prompt: str):
         """ストリーミング生成（複数の応答を逐次返す）"""
-        response = self.client.generate_content(prompt, stream=True)
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: self.client.models.generate_content(
+                model=self.model, contents=prompt, stream=True
+            ),
+        )
         for chunk in response:
             if chunk.text:
                 yield chunk.text
@@ -36,25 +47,30 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
         model: 使用する埋め込みモデル名
         api_key: Google API キー
         """
-        if api_key:
-            genai.configure(api_key=api_key)
         self.model = model
+        self.client = genai.Client(api_key=api_key) if api_key else genai.Client()
 
     async def embed(self, text: str) -> list[float]:
         """テキストをベクトルに変換"""
-        result = genai.embed_content(
-            model=self.model,
-            content=text,
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: self.client.models.embed_content(
+                model=self.model, contents=text
+            ),
         )
-        return result["embedding"]
+        return result.embedding
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """複数テキストをバッチ変換"""
+        loop = asyncio.get_event_loop()
         embeddings = []
         for text in texts:
-            result = genai.embed_content(
-                model=self.model,
-                content=text,
+            result = await loop.run_in_executor(
+                None,
+                lambda t=text: self.client.models.embed_content(
+                    model=self.model, contents=t
+                ),
             )
-            embeddings.append(result["embedding"])
+            embeddings.append(result.embedding)
         return embeddings
