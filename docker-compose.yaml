@@ -8,6 +8,8 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
+      - CUDA_VISIBLE_DEVICES=${GPU_DEVICES:-0}
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_PARALLEL:-1}
     entrypoint: [ "/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen3.5:9b && wait" ]
     deploy:
       resources:
