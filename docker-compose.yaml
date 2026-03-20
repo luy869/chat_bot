@@ -1,0 +1,9 @@
+services:
+  app:
+    build: ./backend
+    container_name: test-rag-platform
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    ports:
+      - "4000:8000"
