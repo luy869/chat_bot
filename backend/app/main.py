@@ -1,13 +1,15 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import chat, documents, collections
 
 app = FastAPI(title="RAG Platform", version="0.1.0")
 
-# CORS設定（luy869.net + localhost のみ）
+# CORS設定
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://luy869.net"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
