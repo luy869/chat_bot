@@ -51,9 +51,9 @@ class MarkdownChunker:
                 heading_text = line.lstrip('#').strip()
                 if level > 0:
                     current_heading_path = current_heading_path[:level - 1] + [heading_text]
-            
-            # テキストの追加
-            current_text.append(line)
+            else:
+                # テキストの追加
+                current_text.append(line)
 
         # 最後のチャンクを追加
         if current_text:
