@@ -9,7 +9,7 @@ class Retriever:
 
     vectorstore: ChromaVectorStore
     top_k: int = 5
-    score_threshold: float = 0.7  # コサイン距離 0.7 以下のみ採用（類似度が高いものだけ）
+    score_threshold: float | None = None  # None=フィルタなし、L2距離で指定する場合は ~1.5 以下が適切
 
     async def retrieve(self, query: str, collection_name: str) -> list[Chunk]:
         """クエリに関連するチャンクを検索"""

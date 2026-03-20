@@ -59,7 +59,7 @@ async def test_add_chunks(vectorstore, sample_chunks):
         await vectorstore.add_chunks(sample_chunks, "test_collection")
 
         # コレクション取得確認
-        mock_collection.assert_called_once_with(name="test_collection")
+        mock_collection.assert_called_once_with(name="test_collection", metadata={"hnsw:space": "cosine"})
 
         # collection.add() が正しい引数で呼ばれたか
         mock_coll.add.assert_called_once()
