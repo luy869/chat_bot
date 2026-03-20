@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Depends
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from pydantic import BaseModel
 from app.db.metadata import MetadataDB, Document
 from app.core.vectorstore.chroma import ChromaVectorStore
@@ -69,18 +69,21 @@ async def upload_document(
     chunks = []
     if filename.endswith(".md"):
         chunker = MarkdownChunker()
-        chunks = chunker.chunk(content.decode("utf-8"), filename, document_id)
+        try:
+            chunks = chunker.chunk(content.decode("utf-8"), filename, document_id)
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="File encoding must be UTF-8")
     elif filename.endswith(".pdf"):
         chunker = PDFChunker()
         chunks = chunker.chunk(content, filename, document_id)
     elif filename.endswith(".txt"):
         chunker = TextChunker()
-        chunks = chunker.chunk(content.decode("utf-8"), filename, document_id)
+        try:
+            chunks = chunker.chunk(content.decode("utf-8"), filename, document_id)
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="File encoding must be UTF-8")
     else:
-        return {
-            "status": "error",
-            "message": f"Unsupported file format: {filename}",
-        }
+        raise HTTPException(status_code=400, detail=f"Unsupported file format: {filename}")
 
     # ベクトルストアに追加
     await vectorstore.add_chunks(chunks, collection_name)
@@ -130,15 +133,8 @@ async def delete_document(
     vectorstore: ChromaVectorStore = Depends(get_vectorstore),
 ):
     """ドキュメント削除"""
-    # ベクトルストアから削除
-    # 注：document_id に紐づく全チャンク（chunk_index=0,1,2,... など）を削除
-    for chunk_index in range(100):  # 最大100チャンクと仮定
-        chunk_id = f"{document_id}:{chunk_index}"
-        try:
-            await vectorstore.delete_chunk(chunk_id, collection_name)
-        except:
-            # チャンクが存在しなければ無視
-            break
+    # ベクトルストアから document_id に紐づく全チャンクを削除
+    await vectorstore.delete_document_chunks(document_id, collection_name)
 
     # メタデータDB から削除
     await metadata_db.delete_document(document_id)

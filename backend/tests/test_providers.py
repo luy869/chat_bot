@@ -9,12 +9,12 @@ from app.core.providers.gemini import GeminiLLMProvider, GeminiEmbeddingProvider
 @pytest.mark.asyncio
 async def test_ollama_llm_generate():
     """OllamaLLMProvider.generate() が正しく応答を返す"""
-    with patch("app.core.providers.ollama.ollama.Client") as mock_client_class:
+    with patch("app.core.providers.ollama.ollama.AsyncClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        mock_client.generate.return_value = {"response": "Hello from Ollama"}
+        mock_client.generate = AsyncMock(return_value={"response": "Hello from Ollama"})
 
-        provider = OllamaLLMProvider(model="gemma3:12b")
+        provider = OllamaLLMProvider(model="qwen3.5:9b")
         result = await provider.generate("What is AI?")
 
         assert result == "Hello from Ollama"
@@ -24,16 +24,16 @@ async def test_ollama_llm_generate():
 @pytest.mark.asyncio
 async def test_ollama_llm_stream():
     """OllamaLLMProvider.stream() がストリーミング応答を返す"""
-    with patch("app.core.providers.ollama.ollama.Client") as mock_client_class:
+    async def mock_stream(*args, **kwargs):
+        for item in [{"response": "Hello "}, {"response": "from "}, {"response": "Ollama"}]:
+            yield item
+
+    with patch("app.core.providers.ollama.ollama.AsyncClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        mock_client.generate.return_value = [
-            {"response": "Hello "},
-            {"response": "from "},
-            {"response": "Ollama"},
-        ]
+        mock_client.generate = mock_stream
 
-        provider = OllamaLLMProvider(model="gemma3:12b")
+        provider = OllamaLLMProvider(model="qwen3.5:9b")
         chunks = []
         async for chunk in provider.stream("What is AI?"):
             chunks.append(chunk)
@@ -45,12 +45,10 @@ async def test_ollama_llm_stream():
 @pytest.mark.asyncio
 async def test_ollama_embedding():
     """OllamaEmbeddingProvider.embed() がベクトルを返す"""
-    with patch("app.core.providers.ollama.ollama.Client") as mock_client_class:
+    with patch("app.core.providers.ollama.ollama.AsyncClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        mock_client.embed.return_value = {
-            "embeddings": [[0.1, 0.2, 0.3, 0.4]]
-        }
+        mock_client.embed = AsyncMock(return_value={"embeddings": [[0.1, 0.2, 0.3, 0.4]]})
 
         provider = OllamaEmbeddingProvider(model="nomic-embed-text")
         result = await provider.embed("Hello world")
@@ -62,15 +60,12 @@ async def test_ollama_embedding():
 @pytest.mark.asyncio
 async def test_ollama_embedding_batch():
     """OllamaEmbeddingProvider.embed_batch() が複数ベクトルを返す"""
-    with patch("app.core.providers.ollama.ollama.Client") as mock_client_class:
+    with patch("app.core.providers.ollama.ollama.AsyncClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        mock_client.embed.return_value = {
-            "embeddings": [
-                [0.1, 0.2, 0.3],
-                [0.4, 0.5, 0.6],
-            ]
-        }
+        mock_client.embed = AsyncMock(return_value={
+            "embeddings": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+        })
 
         provider = OllamaEmbeddingProvider(model="nomic-embed-text")
         result = await provider.embed_batch(["Hello", "World"])

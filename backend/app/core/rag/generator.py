@@ -8,9 +8,6 @@ class Generator:
     """LLMで回答生成"""
 
     llm_provider: LLMProvider
-    model: str = "gemma3:12b"
-    temperature: float = 0.7
-    max_tokens: int = 1000
 
     def _build_context(self, chunks: list[Chunk]) -> str:
         """検索結果からコンテキストを構築"""

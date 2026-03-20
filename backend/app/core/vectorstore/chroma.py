@@ -51,31 +51,35 @@ class ChromaVectorStore:
             metadatas=metadatas,
         )
 
-    async def search(self, query: str, collection_name: str, limit: int = 5) -> list[Chunk]:
+    async def search(
+        self, query: str, collection_name: str, limit: int = 5, score_threshold: float | None = None
+    ) -> list[Chunk]:
         """クエリから関連チャンク検索"""
         collection = self.client.get_or_create_collection(name=collection_name)
 
-        # 1. query をベクトル化
         query_embedding = await self.embedding_provider.embed(query)
 
-        # 2. collection.query() で検索（query_embeddings は list[list[float]]）
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=limit,
+            include=["documents", "metadatas", "distances"],
         )
 
-        # 3. 検索結果から Chunk オブジェクト再構築
         chunks = []
         if results["ids"] and len(results["ids"]) > 0:
             for i, chunk_id in enumerate(results["ids"][0]):
+                distance = results["distances"][0][i]
+
+                # score_threshold はコサイン距離（小さいほど類似度が高い）
+                if score_threshold is not None and distance > score_threshold:
+                    continue
+
                 metadata = results["metadatas"][0][i]
                 content = results["documents"][0][i]
 
-                # heading_path を復元（| 区切りから list へ）
                 heading_path_str = metadata.get("heading_path", "")
                 heading_path = heading_path_str.split("|") if heading_path_str else []
 
-                # page_number を復元（-1 は None に）
                 page_number = metadata.get("page_number", -1)
                 page_number = None if page_number == -1 else page_number
 
@@ -97,6 +101,11 @@ class ChromaVectorStore:
         chunk_id = f"{chunk.document_id}:{chunk.chunk_index}"
         await self.delete_chunk(chunk_id, collection_name)
         await self.add_chunks([chunk], collection_name)
+
+    async def delete_document_chunks(self, document_id: str, collection_name: str) -> None:
+        """document_id に紐づく全チャンクを削除"""
+        collection = self.client.get_or_create_collection(name=collection_name)
+        collection.delete(where={"document_id": document_id})
 
     async def delete_chunk(self, chunk_id: str, collection_name: str) -> None:
         """チャンクを削除"""
