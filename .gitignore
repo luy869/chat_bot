@@ -1,3 +1,6 @@
 CLAUDE.md
 PLAN.md
 DEVELOPMENT_LOG.md
+chroma_data/
+*.db
+example.md

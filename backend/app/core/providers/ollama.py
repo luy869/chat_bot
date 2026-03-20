@@ -5,7 +5,7 @@ from app.core.providers.base import LLMProvider, EmbeddingProvider
 class OllamaLLMProvider(LLMProvider):
     """Ollama ローカルLLM プロバイダ"""
 
-    def __init__(self, model: str = "gemma3:12b", base_url: str = "http://localhost:11434"):
+    def __init__(self, model: str = "gemma3:12b", base_url: str = "http://ollama:11434"):
         """
         model: 使用するOllamaモデル名（ollama pull gemma3:12b など）
         base_url: Ollamaサーバーのエンドポイント
@@ -28,7 +28,7 @@ class OllamaLLMProvider(LLMProvider):
 class OllamaEmbeddingProvider(EmbeddingProvider):
     """Ollama テキスト埋め込みプロバイダ"""
 
-    def __init__(self, model: str = "nomic-embed-text", base_url: str = "http://localhost:11434"):
+    def __init__(self, model: str = "nomic-embed-text", base_url: str = "http://ollama:11434"):
         """
         model: 使用する埋め込みモデル（ollama pull nomic-embed-text など）
         base_url: Ollamaサーバーのエンドポイント

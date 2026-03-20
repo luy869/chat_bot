@@ -1,4 +1,15 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: test-rag-platform-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull gemma3:12b && wait"]
+
   app:
     build: ./backend
     container_name: test-rag-platform
@@ -7,6 +18,10 @@ services:
       - /app/.venv
     ports:
       - "4000:8000"
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
 
   frontend:
     image: nginx:alpine
@@ -17,3 +32,6 @@ services:
       - "3000:80"
     depends_on:
       - app
+
+volumes:
+  ollama_data:

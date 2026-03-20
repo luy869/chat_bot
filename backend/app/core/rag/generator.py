@@ -63,12 +63,7 @@ class Generator:
         context = self._build_context(chunks)
         prompt = self._build_prompt(query, context)
 
-        response = await self.llm_provider.generate(
-            prompt=prompt,
-            model=self.model,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-        )
+        response = await self.llm_provider.generate(prompt=prompt)
         return response
 
     async def stream_generate(
@@ -87,10 +82,5 @@ class Generator:
         context = self._build_context(chunks)
         prompt = self._build_prompt(query, context)
 
-        async for chunk in self.llm_provider.stream(
-            prompt=prompt,
-            model=self.model,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-        ):
+        async for chunk in self.llm_provider.stream(prompt=prompt):
             yield chunk
