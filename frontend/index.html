@@ -26,6 +26,7 @@
         const [input, setInput] = React.useState('');
         const [loading, setLoading] = React.useState(false);
         const [collection, setCollection] = React.useState('default');
+        const [collections, setCollections] = React.useState([]);
         const chatEndRef = React.useRef(null);
 
         const scrollToBottom = () => {
@@ -33,6 +34,19 @@
         };
 
         React.useEffect(scrollToBottom, [messages]);
+
+        React.useEffect(() => {
+          const fetchCollections = async () => {
+            try {
+              const response = await fetch(`${API_BASE}/collections/`);
+              const data = await response.json();
+              setCollections(data);
+            } catch (error) {
+              console.error('コレクション取得エラー:', error);
+            }
+          };
+          fetchCollections();
+        }, []);
 
         const handleSendMessage = async (e) => {
           e.preventDefault();
@@ -79,12 +93,18 @@
               <h1 className="text-xl font-bold mb-4">RAG Platform</h1>
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-2">コレクション:</label>
-                <input
-                  type="text"
+                <select
                   value={collection}
                   onChange={(e) => setCollection(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded"
-                />
+                >
+                  <option value="all">すべて</option>
+                  {collections.map((col) => (
+                    <option key={col.name} value={col.name}>
+                      {col.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
