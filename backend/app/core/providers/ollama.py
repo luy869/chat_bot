@@ -24,12 +24,13 @@ class OllamaLLMProvider(LLMProvider):
 
     async def stream(self, prompt: str):
         """ストリーミング生成"""
-        async for chunk in self.client.generate(
+        stream_response = await self.client.generate(
             model=self.model,
             prompt=prompt,
             stream=True,
             think=False  # Qwen thinking を無効化
-        ):
+        )
+        async for chunk in stream_response:
             yield chunk.get("response", "")
 
 
