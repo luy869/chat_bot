@@ -1,11 +1,8 @@
 import time
-import logging
 from dataclasses import dataclass
 from app.core.rag.retriever import Retriever
 from app.core.rag.generator import Generator
 from app.models.chunk import Chunk
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -42,16 +39,16 @@ class RAGPipeline:
         retrieval_start = time.time()
         chunks = await self.retriever.retrieve(question, collection_name)
         retrieval_time = time.time() - retrieval_start
-        logger.info(f"検索時間: {retrieval_time:.2f}秒")
+        print(f"検索時間: {retrieval_time:.2f}秒")
 
         # 2. 検索結果からLLM回答を生成
         generation_start = time.time()
         answer = await self.generator.generate(question, chunks)
         generation_time = time.time() - generation_start
-        logger.info(f"生成時間: {generation_time:.2f}秒")
+        print(f"生成時間: {generation_time:.2f}秒")
 
         total_time = time.time() - start_time
-        logger.info(f"合計時間: {total_time:.2f}秒")
+        print(f"合計時間: {total_time:.2f}秒")
 
         return RAGResponse(answer=answer, source_chunks=chunks)
 
@@ -74,7 +71,7 @@ class RAGPipeline:
         retrieval_start = time.time()
         chunks = await self.retriever.retrieve(question, collection_name)
         retrieval_time = time.time() - retrieval_start
-        logger.info(f"検索時間: {retrieval_time:.2f}秒")
+        print(f"検索時間: {retrieval_time:.2f}秒")
 
         # 2. ストリーミング生成開始
         generation_start = time.time()
@@ -86,10 +83,10 @@ class RAGPipeline:
                 "content": text_chunk,
             }
         generation_time = time.time() - generation_start
-        logger.info(f"生成時間: {generation_time:.2f}秒")
+        print(f"生成時間: {generation_time:.2f}秒")
 
         total_time = time.time() - start_time
-        logger.info(f"合計時間: {total_time:.2f}秒")
+        print(f"合計時間: {total_time:.2f}秒")
 
         # 3. ストリーム完了時に参照チャンクを返す
         yield {
