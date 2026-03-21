@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from pydantic import BaseModel
 from app.db.metadata import MetadataDB, Document
 from app.core.vectorstore.chroma import ChromaVectorStore
@@ -40,7 +40,7 @@ async def get_vectorstore() -> ChromaVectorStore:
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
-    collection_name: str = "default",
+    collection_name: str = Form("default"),
     metadata_db: MetadataDB = Depends(get_metadata_db),
     vectorstore: ChromaVectorStore = Depends(get_vectorstore),
 ):
