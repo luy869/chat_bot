@@ -21,7 +21,7 @@ class RAGPipeline:
     generator: Generator
 
     async def query(
-        self, question: str, collection_name: str
+        self, question: str, collection_name: str, system_prompt: str | None = None
     ) -> RAGResponse:
         """
         質問に対して RAG回答を生成
@@ -43,7 +43,7 @@ class RAGPipeline:
 
         # 2. 検索結果からLLM回答を生成
         generation_start = time.time()
-        answer = await self.generator.generate(question, chunks)
+        answer = await self.generator.generate(question, chunks, system_prompt)
         generation_time = time.time() - generation_start
         print(f"生成時間: {generation_time:.2f}秒")
 
@@ -52,7 +52,7 @@ class RAGPipeline:
 
         return RAGResponse(answer=answer, source_chunks=chunks)
 
-    async def stream_query(self, question: str, collection_name: str):
+    async def stream_query(self, question: str, collection_name: str, system_prompt: str | None = None):
         """
         質問に対してストリーミング回答を生成
 
@@ -76,7 +76,7 @@ class RAGPipeline:
         # 2. ストリーミング生成開始
         generation_start = time.time()
         full_answer = ""
-        async for text_chunk in self.generator.stream_generate(question, chunks):
+        async for text_chunk in self.generator.stream_generate(question, chunks, system_prompt):
             full_answer += text_chunk
             yield {
                 "type": "chunk",

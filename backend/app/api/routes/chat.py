@@ -15,6 +15,7 @@ class ChatRequest(BaseModel):
     question: str
     collection_name: str = "default"
     stream: bool = False
+    system_prompt: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -58,7 +59,7 @@ async def chat(
         # ストリーミング応答
         async def event_generator():
             async for event in pipeline.stream_query(
-                request.question, request.collection_name
+                request.question, request.collection_name, request.system_prompt
             ):
                 if event["type"] == "chunk":
                     # テキストの断片をSSEで送信
@@ -79,7 +80,7 @@ async def chat(
         )
     else:
         # 通常応答（全体を待ってから返す）
-        response = await pipeline.query(request.question, request.collection_name)
+        response = await pipeline.query(request.question, request.collection_name, request.system_prompt)
         source_files = list(
             set(chunk.source_file for chunk in response.source_chunks)
         )
