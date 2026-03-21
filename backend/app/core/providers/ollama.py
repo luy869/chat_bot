@@ -14,12 +14,22 @@ class OllamaLLMProvider(LLMProvider):
 
     async def generate(self, prompt: str) -> str:
         """テキスト生成（1回の応答）"""
-        response = await self.client.generate(model=self.model, prompt=prompt, stream=False)
+        response = await self.client.generate(
+            model=self.model,
+            prompt=prompt,
+            stream=False,
+            options={"num_think": 0}  # Qwen thinking を無効化
+        )
         return response.get("response", "")
 
     async def stream(self, prompt: str):
         """ストリーミング生成"""
-        async for chunk in self.client.generate(model=self.model, prompt=prompt, stream=True):
+        async for chunk in self.client.generate(
+            model=self.model,
+            prompt=prompt,
+            stream=True,
+            options={"num_think": 0}  # Qwen thinking を無効化
+        ):
             yield chunk.get("response", "")
 
 
