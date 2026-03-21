@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from app.db.metadata import MetadataDB, Collection
 from app.core.vectorstore.chroma import ChromaVectorStore
+from app.api.auth import require_api_key
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -14,6 +15,12 @@ class CollectionResponse(BaseModel):
     document_count: int
     created_at: str
     updated_at: str
+
+
+class SystemPromptRequest(BaseModel):
+    """システムプロンプト設定リクエスト"""
+
+    system_prompt: str
 
 
 async def get_metadata_db() -> MetadataDB:
@@ -31,7 +38,7 @@ async def get_vectorstore() -> ChromaVectorStore:
     return ChromaVectorStore(embedding_provider=provider)
 
 
-@router.post("/{collection_name}")
+@router.post("/{collection_name}", dependencies=[Depends(require_api_key)])
 async def create_collection(
     collection_name: str,
     description: str = "",
@@ -66,17 +73,24 @@ async def list_collections(
     ]
 
 
-@router.delete("/{collection_name}")
+@router.delete("/{collection_name}", dependencies=[Depends(require_api_key)])
 async def delete_collection(
     collection_name: str,
     metadata_db: MetadataDB = Depends(get_metadata_db),
     vectorstore: ChromaVectorStore = Depends(get_vectorstore),
 ):
     """コレクション削除"""
-    # ベクトルストアから削除
     await vectorstore.delete_collection(collection_name)
-
-    # メタデータDB から削除
     await metadata_db.delete_collection(collection_name)
+    return {"status": "success", "collection_name": collection_name}
 
+
+@router.put("/{collection_name}/system-prompt", dependencies=[Depends(require_api_key)])
+async def set_system_prompt(
+    collection_name: str,
+    body: SystemPromptRequest,
+    metadata_db: MetadataDB = Depends(get_metadata_db),
+):
+    """コレクションのシステムプロンプトを設定"""
+    await metadata_db.set_system_prompt(collection_name, body.system_prompt)
     return {"status": "success", "collection_name": collection_name}

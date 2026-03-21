@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from app.api.auth import require_api_key
 from pydantic import BaseModel
 from app.db.metadata import MetadataDB, Document
 from app.core.vectorstore.chroma import ChromaVectorStore
@@ -37,7 +38,7 @@ async def get_vectorstore() -> ChromaVectorStore:
     return ChromaVectorStore(embedding_provider=provider)
 
 
-@router.post("/upload")
+@router.post("/upload", dependencies=[Depends(require_api_key)])
 async def upload_document(
     file: UploadFile = File(...),
     collection_name: str = Form("default"),
@@ -125,7 +126,7 @@ async def list_documents(
     ]
 
 
-@router.delete("/{document_id}")
+@router.delete("/{document_id}", dependencies=[Depends(require_api_key)])
 async def delete_document(
     document_id: str,
     collection_name: str,

@@ -25,6 +25,7 @@ class Collection:
     document_count: int
     created_at: str
     updated_at: str
+    system_prompt: str = ""
 
 
 class MetadataDB:
@@ -60,6 +61,32 @@ class MetadataDB:
                     FOREIGN KEY (collection_name) REFERENCES collections(name)
                 )
                 """
+            )
+            # マイグレーション: system_prompt カラムを追加（既存DBの互換性）
+            try:
+                await db.execute(
+                    "ALTER TABLE collections ADD COLUMN system_prompt TEXT DEFAULT ''"
+                )
+            except Exception:
+                pass  # カラムが既に存在する場合は無視
+            await db.commit()
+
+    async def get_system_prompt(self, collection_name: str) -> str:
+        """コレクションのシステムプロンプトを取得"""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT system_prompt FROM collections WHERE name = ?",
+                (collection_name,),
+            )
+            row = await cursor.fetchone()
+        return row[0] if row and row[0] else ""
+
+    async def set_system_prompt(self, collection_name: str, system_prompt: str):
+        """コレクションのシステムプロンプトを設定"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE collections SET system_prompt = ? WHERE name = ?",
+                (system_prompt, collection_name),
             )
             await db.commit()
 
@@ -142,7 +169,7 @@ class MetadataDB:
         """全コレクション取得"""
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
-                "SELECT name, description, document_count, created_at, updated_at FROM collections"
+                "SELECT name, description, document_count, created_at, updated_at, system_prompt FROM collections"
             )
             rows = await cursor.fetchall()
 
@@ -153,6 +180,7 @@ class MetadataDB:
                 document_count=row[2],
                 created_at=row[3],
                 updated_at=row[4],
+                system_prompt=row[5] or "",
             )
             for row in rows
         ]
