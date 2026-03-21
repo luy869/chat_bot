@@ -9,6 +9,7 @@ services:
       - CUDA_VISIBLE_DEVICES=${GPU_DEVICES:-0}
       - OLLAMA_NUM_PARALLEL=${OLLAMA_PARALLEL:-1}
     entrypoint: [ "/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen3.5:9b && wait" ]
+    restart: unless-stopped
     deploy:
       resources:
         reservations:
@@ -16,7 +17,6 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    restart: unless-stopped
 
   app:
     build: ./backend
