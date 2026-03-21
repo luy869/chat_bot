@@ -18,7 +18,7 @@ class OllamaLLMProvider(LLMProvider):
             model=self.model,
             prompt=prompt,
             stream=False,
-            options={"num_think": 0}  # Qwen thinking を無効化
+            think=False  # Qwen thinking を無効化
         )
         return response.get("response", "")
 
@@ -28,7 +28,7 @@ class OllamaLLMProvider(LLMProvider):
             model=self.model,
             prompt=prompt,
             stream=True,
-            options={"num_think": 0}  # Qwen thinking を無効化
+            think=False  # Qwen thinking を無効化
         ):
             yield chunk.get("response", "")
 
