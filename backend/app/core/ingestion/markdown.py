@@ -33,7 +33,8 @@ class MarkdownChunker:
                 # 見出しが来たら、前のチャンク確定
                 if current_text:
                     text_content = '\n'.join(current_text).strip()
-                    if text_content:
+                    non_heading_lines = [l for l in text_content.split('\n') if l.strip() and not l.startswith('#')]
+                    if text_content and non_heading_lines:
                         chunks.append(Chunk(
                             content=text_content,
                             document_id=document_id,
@@ -51,6 +52,8 @@ class MarkdownChunker:
                 heading_text = line.lstrip('#').strip()
                 if level > 0:
                     current_heading_path = current_heading_path[:level - 1] + [heading_text]
+                    # 見出しもテキストに含める（検索時にキーワードマッチしやすくするため）
+                    current_text.append(line)
             else:
                 # テキストの追加
                 current_text.append(line)
@@ -58,7 +61,8 @@ class MarkdownChunker:
         # 最後のチャンクを追加
         if current_text:
             text_content = '\n'.join(current_text).strip()
-            if text_content:
+            non_heading_lines = [l for l in text_content.split('\n') if l.strip() and not l.startswith('#')]
+            if text_content and non_heading_lines:
                 chunks.append(Chunk(
                     content=text_content,
                     document_id=document_id,

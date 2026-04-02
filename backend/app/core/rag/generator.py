@@ -35,10 +35,14 @@ class Generator:
 提供されたドキュメントの内容に基づいて、ユーザーの質問に答えてください。
 ドキュメント内に答えがない場合は、「提供されたドキュメント内には該当する情報がありません」と答えてください。"""
 
-    def _build_prompt(self, query: str, context: str, system_prompt: str | None = None) -> str:
-        """質問とコンテキストからプロンプトを構築"""
+    def _build_messages(self, query: str, context: str, system_prompt: str | None = None) -> list[dict]:
+        """質問とコンテキストからメッセージリストを構築"""
         base = system_prompt or self.DEFAULT_SYSTEM_PROMPT
-        return f"{base}\n\n以下のドキュメント内容を参考にしてください：\n\n{context}\n\nユーザーの質問: {query}"
+        system_content = f"{base}\n\n以下のドキュメント内容を参考にしてください：\n\n{context}"
+        return [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": query},
+        ]
 
     async def generate(
         self, query: str, chunks: list[Chunk], system_prompt: str | None = None
@@ -54,9 +58,9 @@ class Generator:
             LLMが生成した回答テキスト
         """
         context = self._build_context(chunks)
-        prompt = self._build_prompt(query, context, system_prompt)
+        messages = self._build_messages(query, context, system_prompt)
 
-        response = await self.llm_provider.generate(prompt=prompt)
+        response = await self.llm_provider.generate(messages=messages)
         return response
 
     async def stream_generate(
@@ -73,7 +77,7 @@ class Generator:
             テキストの断片（ストリーミング）
         """
         context = self._build_context(chunks)
-        prompt = self._build_prompt(query, context, system_prompt)
+        messages = self._build_messages(query, context, system_prompt)
 
-        async for chunk in self.llm_provider.stream(prompt=prompt):
+        async for chunk in self.llm_provider.stream(messages=messages):
             yield chunk

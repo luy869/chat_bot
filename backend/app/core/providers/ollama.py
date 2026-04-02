@@ -12,32 +12,34 @@ class OllamaLLMProvider(LLMProvider):
             base_url = os.getenv("OLLAMA_HOST", "http://ollama:11434")
         self.client = ollama.AsyncClient(host=base_url)
 
-    async def generate(self, prompt: str) -> str:
+    async def generate(self, messages: list[dict]) -> str:
         """テキスト生成（1回の応答）"""
-        response = await self.client.generate(
+        response = await self.client.chat(
             model=self.model,
-            prompt=prompt,
+            messages=messages,
             stream=False,
-            think=False  # Qwen thinking を無効化
+            think=False,  # Qwen thinking を無効化
         )
-        return response.get("response", "")
+        return response.get("message", {}).get("content", "")
 
-    async def stream(self, prompt: str):
+    async def stream(self, messages: list[dict]):
         """ストリーミング生成"""
-        stream_response = await self.client.generate(
+        stream_response = await self.client.chat(
             model=self.model,
-            prompt=prompt,
+            messages=messages,
             stream=True,
-            think=False  # Qwen thinking を無効化
+            think=False,  # Qwen thinking を無効化
         )
         async for chunk in stream_response:
-            yield chunk.get("response", "")
+            yield chunk.get("message", {}).get("content", "")
 
 
 class OllamaEmbeddingProvider(EmbeddingProvider):
     """Ollama テキスト埋め込みプロバイダ"""
 
-    def __init__(self, model: str = "nomic-embed-text", base_url: str = None):
+    def __init__(self, model: str = None, base_url: str = None):
+        if model is None:
+            model = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
         self.model = model
         if base_url is None:
             base_url = os.getenv("OLLAMA_HOST", "http://ollama:11434")

@@ -1,19 +1,28 @@
 # RAG Platform
 
-セルフホスト型のRetrieval-Augmented Generationプラットフォーム。
+セルフホスト型の Retrieval-Augmented Generation プラットフォーム。
 
-ドキュメント（Markdown、PDF、テキスト）を投入し、ローカルLLM（Ollama）またはクラウドAPI（Gemini）で質問応答できます。
+Markdown / PDF / テキストを投入し、ローカルLLM（Ollama）またはクラウドAPI（Gemini）で質問応答できる。
+ポートフォリオサイトに埋め込むチャットBotとして実運用中。
+
+**LangChain / LlamaIndex は一切使わず、各SDKを直接呼ぶ自前実装。**
 
 ---
 
-## 機能
+## 技術スタック
 
-- ✅ **複数形式のドキュメント投入** — Markdown（見出し構造を活用）、PDF（ページ単位）、プレーンテキスト
-- ✅ **自動チャンキング** — ドキュメント形式に応じた最適な分割
-- ✅ **ベクトル検索** — ChromaDB で関連チャンク検索
-- ✅ **RAG生成** — 検索結果をコンテキストに含めてLLMで回答生成
-- ✅ **ストリーミング応答** — SSE で生成中の回答をリアルタイム表示
-- ✅ **LLM差し替え可能** — Ollama（ローカル）と Gemini API（クラウド）を透過的に切り替え
+| レイヤー | 技術 |
+|---------|------|
+| バックエンド | Python 3.12 + FastAPI |
+| パッケージ管理 | uv |
+| ベクトルDB | ChromaDB（コサイン距離） |
+| LLM（Primary） | Ollama（qwen3.5:9b） |
+| LLM（Fallback） | Gemini API（gemini-2.0-flash） |
+| Embedding | Ollama（bge-m3, 768次元・多言語対応） |
+| メタデータDB | SQLite（aiosqlite） |
+| フロントエンド | React + TypeScript + Vite + Tailwind CSS |
+| コンテナ | Docker Compose |
+| デプロイ | 自宅サーバー + Cloudflare Tunnel |
 
 ---
 
@@ -21,68 +30,238 @@
 
 ```
 Frontend (React + Tailwind)
-          ↓
+          |
       API (FastAPI)
-      ├─ /chat              質問応答
-      ├─ /documents         ドキュメント管理
-      └─ /collections       コレクション管理
-          ↓
+      |- /chat              質問応答（SSEストリーミング対応）
+      |- /documents         ドキュメント管理（APIキー認証）
+      +- /collections       コレクション・システムプロンプト管理
+          |
   Core (RAGパイプライン)
-  ├─ Ingestion             チャンキング (Markdown/PDF/Text)
-  ├─ Providers            LLM・埋め込み抽象化 (Ollama/Gemini)
-  ├─ VectorStore          ChromaDB ラッパー
-  └─ RAG                  Retriever → Generator
-          ↓
+  |- Ingestion             チャンキング (Markdown/PDF/Text)
+  |- Providers             LLM・Embedding抽象化 (ABC -> Ollama/Gemini)
+  |- VectorStore           ChromaDB ラッパー
+  +- RAG                   Retriever -> Generator
+          |
    Backends
-   ├─ ChromaDB            ベクトル検索
-   ├─ SQLite              メタデータ管理
-   ├─ Ollama              ローカルLLM（デフォルト）
-   └─ Gemini API          クラウドLLM（フォールバック）
+   |- ChromaDB             ベクトル検索（組み込みモード）
+   |- SQLite               メタデータ・システムプロンプト管理
+   |- Ollama               ローカルLLM + Embedding
+   +- Gemini API           クラウドLLM（フォールバック）
 ```
+
+---
+
+## 機能
+
+- **複数形式のドキュメント投入** — Markdown（見出しベースチャンキング + heading_path）、PDF（ページ単位）、プレーンテキスト（段落単位）
+- **ベクトル検索** — bge-m3 で多言語 Embedding、ChromaDB でコサイン距離検索
+- **SSEストリーミング** — トークン単位のリアルタイム応答
+- **LLMプロバイダ差し替え** — ABCパターンで Ollama / Gemini を透過的に切り替え
+- **コレクション別システムプロンプト** — サーバーサイドで管理し、クライアントからの改ざんを防止
+- **API認証** — `X-API-Key` ヘッダーで書き込みAPIを保護
+- **マルチGPU対応** — 環境変数で GPU 割り当て・並列数を制御
 
 ---
 
 ## クイックスタート
 
-### 前提
+### 前提条件
 
 - Docker & Docker Compose
-- Python 3.12（ローカルテスト用）
-- Node.js（フロントエンド開発用）
+- NVIDIA GPU + nvidia-container-toolkit（Ollama用）
 
 ### セットアップ
 
 ```bash
-# リポジトリクローン
 git clone https://github.com/luy869/rag-platform.git
 cd rag-platform
 
-# Docker Compose で起動
+# 環境変数を設定
+cp .env.example .env  # 必要に応じて編集
+
+# 起動（初回はモデルのダウンロードに時間がかかる）
 docker compose up --build
 ```
 
-起動後：
+起動後:
 - **Backend**: http://localhost:4000
 - **Frontend**: http://localhost:3000
 - **Ollama**: http://localhost:11434
-- **ChromaDB**: http://localhost:8000
 
 ### 動作確認
 
 ```bash
+# ヘルスチェック
+curl http://localhost:4000/health
+
 # ドキュメント投入
 curl -X POST http://localhost:4000/documents/upload \
+  -H "X-API-Key: your_api_key" \
   -F "file=@example.md" \
   -F "collection_name=default"
 
-# 質問
+# 質問（非ストリーミング）
 curl -X POST http://localhost:4000/chat/ \
   -H "Content-Type: application/json" \
-  -d '{
-    "question": "What is RAG?",
-    "collection_name": "default",
-    "stream": false
-  }'
+  -d '{"question": "RAGとは何ですか？", "collection_name": "default"}'
+
+# 質問（ストリーミング）
+curl -N -X POST http://localhost:4000/chat/ \
+  -H "Content-Type: application/json" \
+  -d '{"question": "RAGとは何ですか？", "collection_name": "default", "stream": true}'
+```
+
+---
+
+## ポートフォリオBot
+
+`portfolio-bot/` にプロフィールデータ投入スクリプトがある。
+
+```bash
+# プロフィールデータを投入
+cd portfolio-bot
+python ingest.py
+
+# システムプロンプトを設定
+curl -X PUT http://localhost:4000/collections/portfolio/system-prompt \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"system_prompt": "'"$(cat system_prompt.md)"'"}'
+```
+
+---
+
+## API リファレンス
+
+### POST /chat/
+
+質問応答。`stream: true` で SSE ストリーミング。
+
+```
+Request:  {"question": "...", "collection_name": "default", "stream": false}
+Response: {"answer": "...", "source_files": ["example.md"]}
+```
+
+ストリーミング時は `text/event-stream` で以下のイベントを返す:
+```
+data: {"type": "chunk", "content": "こん"}
+
+data: {"type": "complete", "answer": "...", "source_files": [...]}
+```
+
+### POST /documents/upload (認証必須)
+
+ドキュメント投入。`multipart/form-data` で送信。
+
+```
+Form: file=@example.md, collection_name=default
+Response: {"status": "success", "document_id": "uuid-xxx", "chunk_count": 5}
+```
+
+### DELETE /documents/{document_id} (認証必須)
+
+ドキュメント削除。ChromaDB とメタデータ DB の両方からクリーンアップ。
+
+### GET /collections/
+
+コレクション一覧取得。
+
+### POST /collections/{name} (認証必須)
+
+コレクション作成。
+
+### DELETE /collections/{name} (認証必須)
+
+コレクション削除。
+
+### PUT /collections/{name}/system-prompt (認証必須)
+
+コレクション別システムプロンプト設定。
+
+### GET /health
+
+ヘルスチェック。
+
+---
+
+## ディレクトリ構成
+
+```
+rag-platform/
+├── README.md
+├── CLAUDE.md                 プロジェクト指針
+├── PLAN.md                   開発計画書
+├── DEVELOPMENT_LOG.md        開発ログ（面接用）
+├── RAG_TEXTBOOK.md           技術解説教科書
+├── docker-compose.yaml
+│
+├── backend/
+│   ├── dockerfile
+│   ├── pyproject.toml        uv 依存管理
+│   ├── uv.lock
+│   ├── app/
+│   │   ├── main.py           FastAPI エントリポイント
+│   │   ├── config.py         設定管理
+│   │   ├── api/
+│   │   │   ├── auth.py       API キー認証
+│   │   │   └── routes/
+│   │   │       ├── chat.py          チャット（SSE対応）
+│   │   │       ├── documents.py     ドキュメント管理
+│   │   │       └── collections.py   コレクション管理
+│   │   ├── core/
+│   │   │   ├── ingestion/
+│   │   │   │   ├── markdown.py      見出しベースチャンキング
+│   │   │   │   ├── pdf.py           ページ単位チャンキング
+│   │   │   │   └── text.py          段落単位チャンキング
+│   │   │   ├── providers/
+│   │   │   │   ├── base.py          ABC（LLMProvider / EmbeddingProvider）
+│   │   │   │   ├── ollama.py        Ollama 実装
+│   │   │   │   └── gemini.py        Gemini 実装
+│   │   │   ├── vectorstore/
+│   │   │   │   └── chroma.py        ChromaDB ラッパー
+│   │   │   └── rag/
+│   │   │       ├── pipeline.py      RAG パイプライン
+│   │   │       ├── retriever.py     ベクトル検索
+│   │   │       └── generator.py     LLM 回答生成
+│   │   ├── db/
+│   │   │   └── metadata.py          SQLite メタデータ管理
+│   │   └── models/
+│   │       └── chunk.py             Chunk データクラス
+│   └── tests/                       ユニットテスト
+│
+├── frontend/                  React UI
+├── portfolio-bot/             プロフィール投入スクリプト
+│   ├── profile.md             プロフィールデータ
+│   ├── system_prompt.md       ポートフォリオBot用プロンプト
+│   ├── ingest.py              投入スクリプト
+│   └── ingest_default.py      デフォルトコレクション用
+│
+└── docker-compose.yaml
+```
+
+---
+
+## 環境変数
+
+`.env` を作成して設定:
+
+```env
+# Ollama
+OLLAMA_HOST=http://ollama:11434
+OLLAMA_EMBED_MODEL=bge-m3          # Embedding モデル（デフォルト: nomic-embed-text）
+
+# GPU 設定
+GPU_DEVICES=0                      # 使用する GPU（マルチ GPU: 0,1）
+OLLAMA_PARALLEL=1                  # Ollama 同時リクエスト数
+
+# API 認証
+API_KEY=your_secret_key            # 未設定で認証スキップ（開発用）
+
+# CORS
+CORS_ORIGINS=http://localhost:3000 # カンマ区切りで複数指定可
+
+# Gemini（オプション）
+GEMINI_API_KEY=your_api_key
 ```
 
 ---
@@ -96,8 +275,6 @@ cd backend
 uv run pytest -v
 ```
 
-全31テストが成功します。
-
 ### パッケージ追加
 
 ```bash
@@ -105,185 +282,25 @@ cd backend
 uv add <package>
 ```
 
----
+### Docker の注意事項
 
-## 技術スタック
-
-| レイヤー | 技術 |
-|---------|------|
-| Backend | Python 3.12 + FastAPI + aiosqlite |
-| Vector DB | ChromaDB |
-| LLM (Primary) | Ollama（gemma3:12b等） |
-| LLM (Fallback) | Gemini API |
-| Embedding | Ollama (nomic-embed-text) |
-| Frontend | React + TypeScript + Tailwind CSS |
-| Container | Docker Compose |
-| Metadata | SQLite |
-
-### フレームワーク非依存
-
-LangChain や LlamaIndex を使わず、各プロバイダの公式SDKを直接使用しています。
-
-**メリット**：
-- 面接で「RAGパイプラインの中身を全部理解している」と説明可能
-- 依存最小化
-- デバッグ容易
+- `.venv` は anonymous volume で除外する（ホストマウントとの競合を防ぐ）
+- `pyproject.toml` の `requires-python`、`.python-version`、Dockerfile の Python バージョンを必ず統一する
 
 ---
 
-## API リファレンス
+## 設計上の判断
 
-### POST /documents/upload
-
-ドキュメント投入
-
-```json
-{
-  "file": "example.md",
-  "collection_name": "default"
-}
-
-Response:
-{
-  "status": "success",
-  "document_id": "uuid-xxx",
-  "chunk_count": 5
-}
-```
-
-### POST /chat/
-
-質問応答
-
-```json
-{
-  "question": "What is RAG?",
-  "collection_name": "default",
-  "stream": false
-}
-
-Response:
-{
-  "answer": "RAG is a technique...",
-  "source_files": ["example.md"]
-}
-```
-
-ストリーミング (stream=true) では Server-Sent Events (SSE) で応答を段階的に配信します。
-
-### GET /collections/
-
-コレクション一覧
-
-```json
-[
-  {
-    "name": "default",
-    "document_count": 2,
-    "created_at": "2026-03-21T00:00:00"
-  }
-]
-```
-
----
-
-## ディレクトリ構成
-
-```
-rag-platform/
-├── README.md                 このファイル
-├── CLAUDE.md                プロジェクト指針
-├── PLAN.md                  詳細な開発計画書
-│
-├── backend/
-│   ├── pyproject.toml
-│   ├── dockerfile
-│   ├── app/
-│   │   ├── main.py          FastAPI アプリケーション
-│   │   ├── config.py        設定
-│   │   ├── api/
-│   │   │   └── routes/      APIエンドポイント
-│   │   ├── core/
-│   │   │   ├── ingestion/   チャンキング
-│   │   │   ├── providers/   LLM・Embedding抽象化
-│   │   │   ├── vectorstore/ ChromaDB ラッパー
-│   │   │   └── rag/         RAGパイプライン
-│   │   ├── db/              メタデータ管理
-│   │   └── models/          データクラス
-│   └── tests/               ユニットテスト (31個)
-│
-├── frontend/
-│   └── index.html           React UI
-│
-└── docker-compose.yaml      マルチコンテナ構成
-```
-
----
-
-## 環境変数
-
-`.env` を作成して設定：
-
-```env
-# Ollama
-OLLAMA_HOST=http://ollama:11434
-OLLAMA_MODEL=gemma3:12b
-
-# Gemini (オプション、Ollama が利用不可の場合のフォールバック)
-GEMINI_API_KEY=your_api_key_here
-
-# ChromaDB
-CHROMA_DB_PATH=./chroma_data
-
-# FastAPI (カンマ区切り、デフォルト: http://localhost:3000)
-CORS_ORIGINS=http://localhost:3000,https://example.com
-```
-
----
-
-## 拡張ポイント
-
-**ロードマップ**（優先度順）
-
-1. **スコアフィルタリング** — 類似度が低いチャンクを除外
-2. **プロンプトエンジニアリング** — Few-shot examples、言語・トーン指定
-3. **ハイブリッド検索** — ベクトル検索 + BM25 キーワード検索
-4. **チャンク再ランキング** — LLM で関連度を再評価
-5. **質問の言い換え** — 複数表現で検索
-6. **エージェント化** — 複雑な質問に複数検索→統合で対応
-
----
-
-## トラブルシューティング
-
-### Ollama が接続できない
-
-```bash
-# Ollama が起動しているか確認
-curl http://localhost:11434/api/models
-
-# 起動していなければ
-ollama serve
-```
-
-### ChromaDB がスペースを消費
-
-```bash
-# チャンクデータを削除
-rm -rf ./chroma_data
-```
-
-### メモリ不足
-
-Ollama のメモリを制限：
-
-```yaml
-# docker-compose.yaml
-ollama:
-  environment:
-    - OLLAMA_NUM_GPU=1
-    - OLLAMA_MAX_LOADED_MODELS=1
-```
+| 判断 | 理由 |
+|------|------|
+| 自前実装 > LangChain | ブラックボックス排除、面接で全部説明可能、依存最小化 |
+| FastAPI > Flask | ネイティブ非同期、SSE、Pydantic 統合 |
+| ChromaDB > Qdrant | 組み込みモード、追加サービス不要 |
+| SSE > WebSocket | 一方向通信で十分、実装がシンプル |
+| 見出しベース > 固定長チャンキング | 文書構造を活用、heading_path でコンテキスト保持 |
+| bge-m3 > nomic-embed-text | 日本語セマンティック検索の精度 |
+| SQLite > PostgreSQL | ゼロ設定、メタデータ規模に十分 |
+| chat() > generate() | メッセージロール分離でプロンプトインジェクション対策 |
 
 ---
 
