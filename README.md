@@ -18,7 +18,7 @@ Markdown / PDF / テキストを投入し、ローカルLLM（Ollama）または
 | ベクトルDB | ChromaDB（コサイン距離） |
 | LLM（Primary） | Ollama（qwen3.5:9b） |
 | LLM（Fallback） | Gemini API（gemini-2.0-flash） |
-| Embedding | Ollama（bge-m3, 768次元・多言語対応） |
+| Embedding | Ollama（nomic-embed-text デフォルト / bge-m3 推奨） |
 | メタデータDB | SQLite（aiosqlite） |
 | フロントエンド | React + TypeScript + Vite + Tailwind CSS |
 | コンテナ | Docker Compose |
@@ -54,7 +54,7 @@ Frontend (React + Tailwind)
 ## 機能
 
 - **複数形式のドキュメント投入** — Markdown（見出しベースチャンキング + heading_path）、PDF（ページ単位）、プレーンテキスト（段落単位）
-- **ベクトル検索** — bge-m3 で多言語 Embedding、ChromaDB でコサイン距離検索
+- **ベクトル検索** — ChromaDB でコサイン距離検索（Embedding モデルは環境変数で切り替え可）
 - **SSEストリーミング** — トークン単位のリアルタイム応答
 - **LLMプロバイダ差し替え** — ABCパターンで Ollama / Gemini を透過的に切り替え
 - **コレクション別システムプロンプト** — サーバーサイドで管理し、クライアントからの改ざんを防止
@@ -248,7 +248,8 @@ rag-platform/
 ```env
 # Ollama
 OLLAMA_HOST=http://ollama:11434
-OLLAMA_EMBED_MODEL=bge-m3          # Embedding モデル（デフォルト: nomic-embed-text）
+OLLAMA_EMBED_MODEL=bge-m3          # デフォルト: nomic-embed-text（日本語精度を上げる場合は bge-m3 を推奨）
+                                   # bge-m3 を使う場合は事前に: ollama pull bge-m3
 
 # GPU 設定
 GPU_DEVICES=0                      # 使用する GPU（マルチ GPU: 0,1）
@@ -298,7 +299,7 @@ uv add <package>
 | ChromaDB > Qdrant | 組み込みモード、追加サービス不要 |
 | SSE > WebSocket | 一方向通信で十分、実装がシンプル |
 | 見出しベース > 固定長チャンキング | 文書構造を活用、heading_path でコンテキスト保持 |
-| bge-m3 > nomic-embed-text | 日本語セマンティック検索の精度 |
+| bge-m3 > nomic-embed-text | 日本語セマンティック検索の精度（`OLLAMA_EMBED_MODEL` で切り替え） |
 | SQLite > PostgreSQL | ゼロ設定、メタデータ規模に十分 |
 | chat() > generate() | メッセージロール分離でプロンプトインジェクション対策 |
 
