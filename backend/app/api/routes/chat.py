@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -32,7 +33,8 @@ async def get_rag_pipeline() -> RAGPipeline:
 
     embedding_provider = OllamaEmbeddingProvider()
     vectorstore = ChromaVectorStore(embedding_provider=embedding_provider)
-    retriever = Retriever(vectorstore=vectorstore)
+    top_k = int(os.getenv("RAG_TOP_K", "10"))
+    retriever = Retriever(vectorstore=vectorstore, top_k=top_k)
 
     llm_provider = OllamaLLMProvider()
     generator = Generator(llm_provider=llm_provider)

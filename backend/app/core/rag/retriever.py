@@ -8,7 +8,7 @@ class Retriever:
     """ベクトル検索で関連チャンクを取得"""
 
     vectorstore: ChromaVectorStore
-    top_k: int = 5
+    top_k: int = 10
     score_threshold: float | None = None  # None=フィルタなし、L2距離で指定する場合は ~1.5 以下が適切
 
     async def retrieve(self, query: str, collection_name: str) -> list[Chunk]:
