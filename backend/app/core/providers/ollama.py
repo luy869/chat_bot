@@ -18,6 +18,7 @@ class OllamaLLMProvider(LLMProvider):
             model=self.model,
             messages=messages,
             stream=False,
+            think=False,
         )
         return response.get("message", {}).get("content", "")
 
@@ -27,6 +28,7 @@ class OllamaLLMProvider(LLMProvider):
             model=self.model,
             messages=messages,
             stream=True,
+            think=False,
         )
         async for chunk in stream_response:
             yield chunk.get("message", {}).get("content", "")
