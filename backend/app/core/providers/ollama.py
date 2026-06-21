@@ -6,8 +6,8 @@ from app.core.providers.base import LLMProvider, EmbeddingProvider
 class OllamaLLMProvider(LLMProvider):
     """Ollama ローカルLLM プロバイダ"""
 
-    def __init__(self, model: str = "qwen3.5:9b", base_url: str = None):
-        self.model = model
+    def __init__(self, model: str = None, base_url: str = None):
+        self.model = model or os.getenv("OLLAMA_LLM_MODEL", "qwen3.5:9b")
         if base_url is None:
             base_url = os.getenv("OLLAMA_HOST", "http://ollama:11434")
         self.client = ollama.AsyncClient(host=base_url)
@@ -18,7 +18,6 @@ class OllamaLLMProvider(LLMProvider):
             model=self.model,
             messages=messages,
             stream=False,
-            think=False,  # Qwen thinking を無効化
         )
         return response.get("message", {}).get("content", "")
 
@@ -28,7 +27,6 @@ class OllamaLLMProvider(LLMProvider):
             model=self.model,
             messages=messages,
             stream=True,
-            think=False,  # Qwen thinking を無効化
         )
         async for chunk in stream_response:
             yield chunk.get("message", {}).get("content", "")
