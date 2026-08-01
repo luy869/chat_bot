@@ -55,7 +55,7 @@ async def create_collection(
     )
 
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(require_api_key)])
 async def list_collections(
     metadata_db: MetadataDB = Depends(get_metadata_db),
 ):

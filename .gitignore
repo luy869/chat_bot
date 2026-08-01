@@ -5,3 +5,13 @@ chroma_data/
 *.db
 example.md
 portfolio-bot/
+.env
+.env.*
+!.env.example
+
+# 個人的な学習・準備メモ（CLAUDE.md/PLAN.md/DEVELOPMENT_LOG.mdと同じ扱い）
+INTERVIEW_ANSWERS.md
+INTERVIEW_SUMMARY.md
+RAG_SUMMARY.md
+RAG_TEXTBOOK_SUMMARY.md
+TEXTBOOK_PROMPT.md

@@ -1,5 +1,7 @@
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+import os
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Request
 from app.api.auth import require_api_key
+from app.core.rate_limit import limiter, UPLOAD_RATE_LIMIT
 from pydantic import BaseModel
 from app.db.metadata import MetadataDB, Document
 from app.core.vectorstore.chroma import ChromaVectorStore
@@ -9,6 +11,25 @@ from app.core.ingestion.text import TextChunker
 import uuid
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+ALLOWED_EXTENSIONS = (".md", ".pdf", ".txt")
+# アップロードサイズ上限（デフォルト10MB）。file.read()で無制限に読み込むと
+# 巨大ファイルでメモリを食い潰すDoSになるため、上限を超えたら早期に打ち切る
+MAX_UPLOAD_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", str(10 * 1024 * 1024)))
+_READ_CHUNK_SIZE = 1024 * 1024
+
+
+async def _read_file_with_size_limit(file: UploadFile) -> bytes:
+    """アップロードファイルをサイズ上限つきで読み込む"""
+    content = bytearray()
+    while chunk := await file.read(_READ_CHUNK_SIZE):
+        content.extend(chunk)
+        if len(content) > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Max size is {MAX_UPLOAD_SIZE_BYTES} bytes",
+            )
+    return bytes(content)
 
 
 class DocumentListResponse(BaseModel):
@@ -39,7 +60,9 @@ async def get_vectorstore() -> ChromaVectorStore:
 
 
 @router.post("/upload", dependencies=[Depends(require_api_key)])
+@limiter.limit(UPLOAD_RATE_LIMIT)
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     collection_name: str = Form("default"),
     metadata_db: MetadataDB = Depends(get_metadata_db),
@@ -55,15 +78,20 @@ async def upload_document(
     Returns:
         {"document_id": "...", "chunk_count": 5, "status": "success"}
     """
+    filename = file.filename or "unknown"
+
+    # 拡張子チェックは読み込み前に行い、不正なファイルで無駄なI/O・コレクション作成をしない
+    if not filename.endswith(ALLOWED_EXTENSIONS):
+        raise HTTPException(status_code=400, detail=f"Unsupported file format: {filename}")
+
     # コレクション確認（なければ作成）
     await metadata_db.create_collection(collection_name)
 
     # ドキュメントID生成
     document_id = str(uuid.uuid4())
 
-    # ファイル内容読み込み
-    content = await file.read()
-    filename = file.filename or "unknown"
+    # ファイル内容読み込み（サイズ上限つき）
+    content = await _read_file_with_size_limit(file)
     file_size = len(content)
 
     # ファイル形式に応じてチャンキング
@@ -106,7 +134,7 @@ async def upload_document(
     }
 
 
-@router.get("/{collection_name}")
+@router.get("/{collection_name}", dependencies=[Depends(require_api_key)])
 async def list_documents(
     collection_name: str,
     metadata_db: MetadataDB = Depends(get_metadata_db),
