@@ -15,3 +15,6 @@ INTERVIEW_SUMMARY.md
 RAG_SUMMARY.md
 RAG_TEXTBOOK_SUMMARY.md
 TEXTBOOK_PROMPT.md
+# 個人プロフィール（RAG投入データは本番サーバー側で直接管理する運用のため、リポジトリには置かない）
+basic.md
+profile/
