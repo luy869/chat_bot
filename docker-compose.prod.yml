@@ -11,6 +11,7 @@ services:
       - OLLAMA_LLM_MODEL=${OLLAMA_LLM_MODEL:-qwen3.5:9b}
       - OLLAMA_EMBED_MODEL=${OLLAMA_EMBED_MODEL:-nomic-embed-text}
       - RAG_TOP_K=${RAG_TOP_K:-10}
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-}
     ports:
       - "8000:8000"
     restart: unless-stopped

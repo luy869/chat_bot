@@ -2,6 +2,10 @@ import os
 import ollama
 from app.core.providers.base import LLMProvider, EmbeddingProvider
 
+# モデルをVRAMに保持する時間。未設定なら Ollama 既定（5分）に任せる。
+# GPU は他サービスと共有しているため、長く保持させたい場合だけ明示的に設定する
+KEEP_ALIVE = os.getenv("OLLAMA_KEEP_ALIVE") or None
+
 
 class OllamaLLMProvider(LLMProvider):
     """Ollama ローカルLLM プロバイダ"""
@@ -19,6 +23,7 @@ class OllamaLLMProvider(LLMProvider):
             messages=messages,
             stream=False,
             think=False,
+            keep_alive=KEEP_ALIVE,
         )
         return response.get("message", {}).get("content", "")
 
@@ -29,6 +34,7 @@ class OllamaLLMProvider(LLMProvider):
             messages=messages,
             stream=True,
             think=False,
+            keep_alive=KEEP_ALIVE,
         )
         async for chunk in stream_response:
             yield chunk.get("message", {}).get("content", "")
@@ -47,10 +53,14 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
 
     async def embed(self, text: str) -> list[float]:
         """テキストをベクトルに変換"""
-        response = await self.client.embed(model=self.model, input=text)
+        response = await self.client.embed(
+            model=self.model, input=text, keep_alive=KEEP_ALIVE
+        )
         return response.get("embeddings", [[]])[0]
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """複数テキストをバッチ変換"""
-        response = await self.client.embed(model=self.model, input=texts)
+        response = await self.client.embed(
+            model=self.model, input=texts, keep_alive=KEEP_ALIVE
+        )
         return response.get("embeddings", [])
